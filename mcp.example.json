@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "keycode": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/keycode-mcp/dist/server.js"
+      ],
+      "env": {
+        "COHERE_API_KEY": "your_cohere_api_key_here",
+        "GITHUB_TOKEN": "your_github_personal_access_token_here",
+        "SUPABASE_URL": "https://your-project.supabase.co",
+        "SUPABASE_SERVICE_KEY": "your_supabase_service_role_key_here",
+        "CLOUDFLARE_API_TOKEN": "your_cloudflare_api_token_here"
+      }
+    }
+  }
+}
+

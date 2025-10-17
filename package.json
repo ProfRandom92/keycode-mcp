@@ -1,0 +1,42 @@
+{
+  "name": "keycode-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for code snippet management, git operations, Supabase/Cloudflare integration, and Android IME builds",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "keycode-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/server.ts",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "snippets",
+    "git",
+    "supabase",
+    "cloudflare",
+    "android"
+  ],
+  "author": "",
+  "license": "MIT",
+
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.1",
+    "cohere-ai": "^7.19.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "@vitest/ui": "^3.2.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
