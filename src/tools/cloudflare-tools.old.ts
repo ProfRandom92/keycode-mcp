@@ -2,38 +2,24 @@ import { z } from 'zod';
 import { execSync } from 'child_process';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { SecurityGate } from '../security/gates.js';
-import { logger } from '../security/logger.js';
 
 export const CloudflareDeploySchema = z.object({
   type: z.enum(['page', 'worker']).describe('Deployment type'),
-  name: z.string().regex(/^[a-z0-9-]+$/).describe('Project/worker name (lowercase, alphanumeric, hyphens)'),
+  name: z.string().describe('Project/worker name'),
   path: z.string().describe('Path to deploy (directory for pages, file for workers)'),
   accountId: z.string().optional().describe('Cloudflare account ID'),
-  confirm: z.boolean().optional().default(false).describe('Confirm execution (required when dry-run is enabled)'),
 });
 
 export class CloudflareTools {
   private apiToken?: string;
-  private securityGate?: SecurityGate;
 
-  constructor(apiToken?: string, securityGate?: SecurityGate) {
+  constructor(apiToken?: string) {
     this.apiToken = apiToken;
-    this.securityGate = securityGate;
   }
 
   async deploy(args: z.infer<typeof CloudflareDeploySchema>) {
     if (!this.apiToken) {
       throw new Error('CLOUDFLARE_API_TOKEN not configured');
-    }
-
-    // Security gate check
-    if (this.securityGate) {
-      const gateCheck = await this.securityGate.checkMutatingOperation('cloudflare.deploy', args, args.confirm);
-      if (!gateCheck.allowed) {
-        logger.warn('cloudflare.deploy blocked', { reason: gateCheck.reason, dryRun: gateCheck.dryRun });
-        throw new Error(gateCheck.reason || 'Operation not allowed');
-      }
     }
 
     try {
@@ -43,12 +29,12 @@ export class CloudflareTools {
         return await this.deployWorker(args);
       }
     } catch (error: any) {
-      logger.error('cloudflare.deploy failed', { error: error.message });
       throw new Error(`Cloudflare deployment failed: ${error.message}`);
     }
   }
 
   private async deployPage(args: z.infer<typeof CloudflareDeploySchema>) {
+    // Using wrangler CLI for Pages deployment
     const env = {
       ...process.env,
       CLOUDFLARE_API_TOKEN: this.apiToken,
@@ -59,8 +45,6 @@ export class CloudflareTools {
 
     const output = execSync(cmd, { encoding: 'utf-8', env });
 
-    logger.info('cloudflare.deploy page success', { name: args.name });
-
     return {
       success: true,
       type: 'page',
@@ -70,6 +54,7 @@ export class CloudflareTools {
   }
 
   private async deployWorker(args: z.infer<typeof CloudflareDeploySchema>) {
+    // Create a temporary wrangler.toml if it doesn't exist
     const wranglerConfig = `
 name = "${args.name}"
 main = "${args.path}"
@@ -88,8 +73,6 @@ compatibility_date = "2024-01-01"
     const cmd = `npx wrangler deploy ${accountFlag}`;
 
     const output = execSync(cmd, { encoding: 'utf-8', env });
-
-    logger.info('cloudflare.deploy worker success', { name: args.name });
 
     return {
       success: true,

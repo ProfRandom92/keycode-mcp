@@ -19,56 +19,24 @@ import { SupabaseTools, SupabaseQuerySchema, SupabaseKVGetSchema, SupabaseKVSetS
 import { CloudflareTools, CloudflareDeploySchema } from './tools/cloudflare-tools.js';
 import { AndroidTools, AndroidBuildImeSchema } from './tools/android-tools.js';
 import { prompts, PromptName } from './prompts/index.js';
-import { SecurityGate } from './security/gates.js';
-import { logger } from './security/logger.js';
-import { SecurityConfig, DEFAULT_SECURITY_CONFIG } from './types/security.js';
 
-// Load security configuration from environment or use defaults
-const securityConfig: SecurityConfig = {
-  ...DEFAULT_SECURITY_CONFIG,
-  dryRun: process.env.MCP_DRY_RUN !== 'false',
-  requireConfirm: process.env.MCP_REQUIRE_CONFIRM !== 'false',
-  whitelist: {
-    repos: process.env.MCP_WHITELIST_REPOS?.split(',') || [],
-    orgs: process.env.MCP_WHITELIST_ORGS?.split(',') || [],
-    branches: process.env.MCP_WHITELIST_BRANCHES?.split(',') || ['sandbox-*', 'test/*', 'dev/*'],
-  },
-  capabilities: {
-    snippets: process.env.MCP_CAP_SNIPPETS !== 'false',
-    git: process.env.MCP_CAP_GIT === 'true',
-    supabase: process.env.MCP_CAP_SUPABASE === 'true',
-    cloudflare: process.env.MCP_CAP_CLOUDFLARE === 'true',
-    android: process.env.MCP_CAP_ANDROID === 'true',
-  },
-  humanInTheLoop: process.env.MCP_HUMAN_IN_LOOP !== 'false',
-};
-
-logger.info('Security configuration loaded', { 
-  dryRun: securityConfig.dryRun,
-  requireConfirm: securityConfig.requireConfirm,
-  capabilities: securityConfig.capabilities,
-});
-
-// Initialize security gate
-const securityGate = new SecurityGate(securityConfig);
-
-// Initialize services with security gates
+// Initialize services
 const snippetStorage = new SnippetStorage();
 const embeddingsService = new EmbeddingsService(process.env.COHERE_API_KEY);
 const snippetTools = new SnippetTools(snippetStorage, embeddingsService);
-const gitTools = new GitTools(process.env.GITHUB_TOKEN, securityGate);
+const gitTools = new GitTools(process.env.GITHUB_TOKEN);
 const supabaseTools = new SupabaseTools(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-const cloudflareTools = new CloudflareTools(process.env.CLOUDFLARE_API_TOKEN, securityGate);
-const androidTools = new AndroidTools(securityGate);
+const cloudflareTools = new CloudflareTools(process.env.CLOUDFLARE_API_TOKEN);
+const androidTools = new AndroidTools();
 
 // Create MCP server
 const server = new Server(
   {
     name: 'keycode-mcp',
-    version: '2.0.0',
+    version: '1.0.0',
   },
   {
     capabilities: {
@@ -104,10 +72,10 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         mimeType: 'application/json',
       },
       {
-        uri: 'logs://audit',
-        name: 'Audit Trail',
-        description: 'Security audit trail of all tool operations',
-        mimeType: 'application/json',
+        uri: 'logs://recent',
+        name: 'Recent Logs',
+        description: 'Recent operation logs and activity',
+        mimeType: 'text/plain',
       },
     ],
   };
@@ -130,6 +98,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   }
 
   if (uri === 'templates://list') {
+    // Mock templates for now
     const templates = [
       { id: 'react-component', name: 'React Component', language: 'typescript' },
       { id: 'express-route', name: 'Express Route', language: 'javascript' },
@@ -149,12 +118,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   if (uri === 'workspace://info') {
     const info = {
       name: 'keycode-mcp',
-      version: '2.0.0',
       snippetCount: snippetStorage.getAll().length,
-      security: {
-        dryRun: securityConfig.dryRun,
-        capabilities: securityConfig.capabilities,
-      },
       timestamp: new Date().toISOString(),
     };
     return {
@@ -168,14 +132,14 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     };
   }
 
-  if (uri === 'logs://audit') {
-    const auditLog = securityGate.getRecentAuditLog(100);
+  if (uri === 'logs://recent') {
+    const logs = 'No recent logs available';
     return {
       contents: [
         {
           uri,
-          mimeType: 'application/json',
-          text: JSON.stringify(auditLog, null, 2),
+          mimeType: 'text/plain',
+          text: logs,
         },
       ],
     };
@@ -210,22 +174,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'git.createRepo',
-        description: '[MUTATING] Create a new GitHub repository. Requires confirm:true when dry-run is enabled.',
+        description: 'Create a new GitHub repository',
         inputSchema: GitCreateRepoSchema,
       },
       {
         name: 'git.commit',
-        description: '[MUTATING] Commit changes to the current repository. Requires confirm:true when dry-run is enabled.',
+        description: 'Commit changes to the current repository',
         inputSchema: GitCommitSchema,
       },
       {
         name: 'git.branch',
-        description: '[MUTATING] Create a new git branch. Requires confirm:true when dry-run is enabled. Subject to branch whitelist.',
+        description: 'Create a new git branch',
         inputSchema: GitBranchSchema,
       },
       {
         name: 'git.pr',
-        description: '[MUTATING] Create a pull request on GitHub. Requires confirm:true when dry-run is enabled. Subject to branch whitelist.',
+        description: 'Create a pull request on GitHub',
         inputSchema: GitPRSchema,
       },
       {
@@ -245,12 +209,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'cloudflare.deploy',
-        description: '[MUTATING] Deploy a Cloudflare Pages site or Worker. Requires confirm:true when dry-run is enabled.',
+        description: 'Deploy a Cloudflare Pages site or Worker',
         inputSchema: CloudflareDeploySchema,
       },
       {
         name: 'android.buildIme',
-        description: '[MUTATING] Build an Android IME project using Gradle. Requires confirm:true when dry-run is enabled.',
+        description: 'Build an Android IME (Input Method Editor) project using Gradle',
         inputSchema: AndroidBuildImeSchema,
       },
     ],
@@ -261,90 +225,141 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    let result: any;
-
     switch (name) {
       case 'snippet.search':
-        result = await snippetTools.search(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await snippetTools.search(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'snippet.upsert':
-        result = await snippetTools.upsert(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await snippetTools.upsert(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'snippet.export':
-        result = await snippetTools.exportSnippets(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await snippetTools.exportSnippets(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'snippet.import':
-        result = await snippetTools.importSnippets(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await snippetTools.importSnippets(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'git.createRepo':
-        result = await gitTools.createRepo(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await gitTools.createRepo(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'git.commit':
-        result = await gitTools.commit(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await gitTools.commit(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'git.branch':
-        result = await gitTools.createBranch(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await gitTools.createBranch(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'git.pr':
-        result = await gitTools.createPR(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await gitTools.createPR(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'supabase.query':
-        result = await supabaseTools.query(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await supabaseTools.query(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'supabase.kv.get':
-        result = await supabaseTools.kvGet(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await supabaseTools.kvGet(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'supabase.kv.set':
-        result = await supabaseTools.kvSet(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await supabaseTools.kvSet(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'cloudflare.deploy':
-        result = await cloudflareTools.deploy(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await cloudflareTools.deploy(args as any), null, 2),
+            },
+          ],
+        };
 
       case 'android.buildIme':
-        result = await androidTools.buildIme(args as any);
-        securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'success' });
-        break;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await androidTools.buildIme(args as any), null, 2),
+            },
+          ],
+        };
 
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
-    };
   } catch (error: any) {
-    logger.error(`Tool ${name} failed`, { error: error.message });
-    securityGate.audit({ tool: name, caller: 'mcp-client', inputs: args, outcome: 'error', error: error.message });
-    
     return {
       content: [
         {
@@ -376,6 +391,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     throw new Error(`Unknown prompt: ${promptName}`);
   }
 
+  // Simple template rendering
   let rendered = prompt.template;
   const args = request.params.arguments || {};
 
@@ -383,6 +399,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     rendered = rendered.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
   }
 
+  // Handle conditional blocks (simplified)
   rendered = rendered.replace(/{{#if (\w+)}}([\s\S]*?){{\/if}}/g, (match, key, content) => {
     return args[key] ? content : '';
   });
@@ -405,11 +422,11 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  logger.info('keycode-mcp server running', { version: '2.0.0', security: 'enabled' });
+  console.error('keycode-mcp server running on stdio');
 }
 
 main().catch((error) => {
-  logger.error('Server startup failed', { error: error.message });
+  console.error('Server error:', error);
   process.exit(1);
 });
 

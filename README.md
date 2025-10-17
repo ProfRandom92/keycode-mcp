@@ -1,181 +1,284 @@
-# keycode-mcp
+# keycode-mcp v2.0 - Security-Hardened Edition
 
-A Model Context Protocol (MCP) server for code snippet management, git operations, Supabase/Cloudflare integration, and Android IME builds.
+A Model Context Protocol (MCP) server for code snippet management, git operations, Supabase/Cloudflare integration, and Android IME builds with **comprehensive security hardening**.
 
-## Features
+## 🔒 Security Features
 
-### Resources
+### Dry-Run Mode (Default: ON)
+All mutating operations require explicit `confirm:true` parameter when dry-run mode is enabled.
 
-- **`snippets://all`** - Complete collection of stored code snippets
-- **`templates://list`** - Reusable code templates and boilerplates
-- **`workspace://info`** - Current workspace configuration and metadata
-- **`logs://recent`** - Recent operation logs and activity
+### Capability Flags (Least-Privilege Defaults)
+Tools are disabled by default and must be explicitly enabled via environment variables:
+- `snippets`: ✅ Enabled by default (read-only operations)
+- `git`: ❌ Disabled by default
+- `supabase`: ❌ Disabled by default  
+- `cloudflare`: ❌ Disabled by default
+- `android`: ❌ Disabled by default
 
-### Tools
+### Whitelist Configuration
+- Repository whitelist (org/repo patterns)
+- Organization whitelist
+- Branch name whitelist (supports glob patterns like `sandbox-*`)
 
-#### Snippet Management
-- **`snippet.search`** - Search code snippets using keyword or semantic search with Cohere embeddings
-- **`snippet.upsert`** - Create or update a code snippet with optional embedding generation
-- **`snippet.export`** - Export all snippets to JSON format
-- **`snippet.import`** - Import snippets from JSON data
+### Audit Trail
+All tool operations are logged with:
+- Timestamp
+- Tool name
+- Caller identification
+- Input hash (for verification)
+- Outcome (success/error/dry-run/rejected)
 
-#### Git Operations
-- **`git.createRepo`** - Create a new GitHub repository
-- **`git.commit`** - Commit changes to the current repository
-- **`git.branch`** - Create a new git branch
-- **`git.pr`** - Create a pull request on GitHub
+### Secure Logging
+- Automatic masking of API keys, tokens, secrets, passwords
+- Structured JSON logs
+- Sensitive key detection in nested objects
 
-#### Supabase Integration
-- **`supabase.query`** - Execute a query on Supabase database
-- **`supabase.kv.get`** - Get a value from Supabase KV store
-- **`supabase.kv.set`** - Set a value in Supabase KV store
+### Input Validation
+- Zod schema validation for all tool inputs
+- Length constraints (commit messages: 10-200 chars, PR titles: 10-100 chars)
+- Pattern validation (branch names, project names)
+- Reject/clamp policies
 
-#### Cloudflare Deployment
-- **`cloudflare.deploy`** - Deploy a Cloudflare Pages site or Worker
+---
 
-#### Android Build
-- **`android.buildIme`** - Build an Android IME (Input Method Editor) project using Gradle
-
-### Prompts
-
-- **`p:create-companion`** - Generate a companion app or service for an existing codebase
-- **`p:hardening-privacy`** - Analyze code for privacy issues and suggest hardening measures
-- **`p:ship-release`** - Generate a comprehensive release checklist and automation plan
-
-## Installation
+## 📦 Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/keycode-mcp.git
+git clone https://github.com/ProfRandom92/keycode-mcp.git
 cd keycode-mcp
-
-# Install dependencies
 pnpm install
-
-# Build the project
 pnpm build
 ```
 
-## Configuration
+---
+
+## ⚙️ Configuration
 
 ### Environment Variables
 
-The following environment variables are required for various features:
+See [`.env.example`](./.env.example) for complete configuration template.
 
-#### Required for Snippet Semantic Search
-- **`COHERE_API_KEY`** - Your Cohere API key for generating embeddings
-  - Get your API key from [Cohere Dashboard](https://dashboard.cohere.com/)
-
-#### Required for Git Operations
-- **`GITHUB_TOKEN`** - GitHub personal access token with repo permissions
-  - Generate at [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
-
-#### Optional: Supabase Integration
-- **`SUPABASE_URL`** - Your Supabase project URL (e.g., `https://xxxxx.supabase.co`)
-- **`SUPABASE_SERVICE_KEY`** - Your Supabase service role key
-  - Find these in your [Supabase Project Settings > API](https://app.supabase.com/)
-
-#### Optional: Cloudflare Deployment
-- **`CLOUDFLARE_API_TOKEN`** - Cloudflare API token with Workers and Pages permissions
-  - Create at [Cloudflare Dashboard > My Profile > API Tokens](https://dash.cloudflare.com/profile/api-tokens)
-
-### Example `.env` file
+#### Required
 
 ```bash
-# Required for semantic search
-COHERE_API_KEY=your_cohere_api_key_here
+# Cohere API for semantic search
+COHERE_API_KEY=your_key_here
 
-# Required for git operations
-GITHUB_TOKEN=your_github_token_here
-
-# Optional: Supabase
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_SERVICE_KEY=your_supabase_service_key_here
-
-# Optional: Cloudflare
-CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
+# GitHub token for git operations
+# Scopes: repo, workflow (optional)
+GITHUB_TOKEN=your_token_here
 ```
 
-## Usage with Claude Desktop
-
-Add this server to your Claude Desktop configuration:
-
-### macOS
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "keycode": {
-      "command": "node",
-      "args": [
-        "/absolute/path/to/keycode-mcp/dist/server.js"
-      ],
-      "env": {
-        "COHERE_API_KEY": "your_cohere_api_key",
-        "GITHUB_TOKEN": "your_github_token",
-        "SUPABASE_URL": "https://xxxxx.supabase.co",
-        "SUPABASE_SERVICE_KEY": "your_supabase_key",
-        "CLOUDFLARE_API_TOKEN": "your_cloudflare_token"
-      }
-    }
-  }
-}
-```
-
-### Windows
-Edit `%APPDATA%\Claude\claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "keycode": {
-      "command": "node",
-      "args": [
-        "C:\\absolute\\path\\to\\keycode-mcp\\dist\\server.js"
-      ],
-      "env": {
-        "COHERE_API_KEY": "your_cohere_api_key",
-        "GITHUB_TOKEN": "your_github_token",
-        "SUPABASE_URL": "https://xxxxx.supabase.co",
-        "SUPABASE_SERVICE_KEY": "your_supabase_key",
-        "CLOUDFLARE_API_TOKEN": "your_cloudflare_token"
-      }
-    }
-  }
-}
-```
-
-### Linux
-Edit `~/.config/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "keycode": {
-      "command": "node",
-      "args": [
-        "/absolute/path/to/keycode-mcp/dist/server.js"
-      ],
-      "env": {
-        "COHERE_API_KEY": "your_cohere_api_key",
-        "GITHUB_TOKEN": "your_github_token",
-        "SUPABASE_URL": "https://xxxxx.supabase.co",
-        "SUPABASE_SERVICE_KEY": "your_supabase_key",
-        "CLOUDFLARE_API_TOKEN": "your_cloudflare_token"
-      }
-    }
-  }
-}
-```
-
-## Development
+#### Optional
 
 ```bash
-# Run in development mode with auto-reload
-pnpm dev
+# Supabase (prefer RLS-secured roles over service key)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your_service_key_here
 
-# Run tests
+# Cloudflare (Pages + Workers permissions)
+CLOUDFLARE_API_TOKEN=your_token_here
+CLOUDFLARE_ACCOUNT_ID=your_account_id
+```
+
+#### Security Configuration
+
+```bash
+# Dry-run mode (default: true)
+MCP_DRY_RUN=true
+
+# Require confirmation (default: true)
+MCP_REQUIRE_CONFIRM=true
+
+# Human-in-the-loop (default: true)
+MCP_HUMAN_IN_LOOP=true
+
+# Capability flags (default: only snippets enabled)
+MCP_CAP_SNIPPETS=true
+MCP_CAP_GIT=false
+MCP_CAP_SUPABASE=false
+MCP_CAP_CLOUDFLARE=false
+MCP_CAP_ANDROID=false
+
+# Whitelists (comma-separated, supports glob patterns)
+MCP_WHITELIST_REPOS=owner/repo1,org/*
+MCP_WHITELIST_ORGS=myorg,trusted-org
+MCP_WHITELIST_BRANCHES=sandbox-*,test/*,dev/*
+```
+
+---
+
+## 🚀 Usage
+
+### Claude Desktop Configuration
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
+**Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "keycode": {
+      "command": "node",
+      "args": ["/absolute/path/to/keycode-mcp/dist/server.js"],
+      "env": {
+        "COHERE_API_KEY": "your_key",
+        "GITHUB_TOKEN": "your_token",
+        "MCP_DRY_RUN": "true",
+        "MCP_CAP_GIT": "true",
+        "MCP_WHITELIST_BRANCHES": "sandbox-*,test/*"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 🛠️ Tools
+
+### Snippet Management (Read-Only by Default)
+- `snippet.search` - Keyword or semantic search with Cohere embeddings
+- `snippet.upsert` - Create/update snippets
+- `snippet.export` - Export to JSON
+- `snippet.import` - Import from JSON
+
+### Git Operations (Mutating - Requires Confirmation)
+- `git.createRepo` - Create GitHub repository
+- `git.commit` - Commit changes (10-200 char message)
+- `git.branch` - Create branch (whitelist-checked)
+- `git.pr` - Create pull request (10-100 char title, whitelist-checked)
+
+### Supabase Integration
+- `supabase.query` - Execute database queries
+- `supabase.kv.get` - Get KV value
+- `supabase.kv.set` - Set KV value
+
+### Cloudflare Deployment (Mutating - Requires Confirmation)
+- `cloudflare.deploy` - Deploy Pages or Workers
+
+### Android Build (Mutating - Requires Confirmation)
+- `android.buildIme` - Build IME with Gradle
+
+---
+
+## 📚 Resources
+
+- `snippets://all` - All code snippets
+- `templates://list` - Code templates
+- `workspace://info` - Workspace metadata + security config
+- `logs://audit` - Security audit trail (last 100 entries)
+
+---
+
+## 🎯 Prompts
+
+- `p:create-companion` - Generate companion app design
+- `p:hardening-privacy` - Privacy analysis and hardening recommendations
+- `p:ship-release` - Release checklist and automation plan
+
+---
+
+## 📋 Example Tool Calls
+
+### Safe: Search Snippets (No Confirmation Required)
+
+```json
+{
+  "tool": "snippet.search",
+  "arguments": {
+    "query": "react hooks",
+    "semantic": true,
+    "topK": 5
+  }
+}
+```
+
+### Mutating: Create Branch (Requires Confirmation + Whitelist)
+
+```json
+{
+  "tool": "git.branch",
+  "arguments": {
+    "name": "sandbox-feature-123",
+    "checkout": true,
+    "confirm": true
+  }
+}
+```
+
+**Without `confirm:true`:**
+```
+Error: Dry-run mode enabled. Set confirm:true to execute.
+```
+
+**Branch not in whitelist:**
+```
+Error: Branch 'main' not in whitelist. Allowed patterns: sandbox-*, test/*, dev/*
+```
+
+### Mutating: Deploy Cloudflare Worker
+
+```json
+{
+  "tool": "cloudflare.deploy",
+  "arguments": {
+    "type": "worker",
+    "name": "my-worker",
+    "path": "./worker.js",
+    "confirm": true
+  }
+}
+```
+
+---
+
+## 🔐 Security Model
+
+### Threat Model
+
+| Threat | Mitigation |
+|--------|-----------|
+| Accidental destructive operations | Dry-run mode + explicit confirmation |
+| Unauthorized repository access | Whitelist validation for repos/orgs/branches |
+| Credential leakage in logs | Automatic masking of secrets in all logs |
+| Privilege escalation | Capability flags with least-privilege defaults |
+| Audit trail tampering | Immutable audit log with input hashing |
+| Malicious input | Zod schema validation + pattern constraints |
+
+### Permission Model
+
+| Tool Category | Default State | Required Env Var | Mutating? |
+|--------------|---------------|------------------|-----------|
+| Snippets | ✅ Enabled | `MCP_CAP_SNIPPETS` | No |
+| Git | ❌ Disabled | `MCP_CAP_GIT=true` | Yes |
+| Supabase | ❌ Disabled | `MCP_CAP_SUPABASE=true` | Depends |
+| Cloudflare | ❌ Disabled | `MCP_CAP_CLOUDFLARE=true` | Yes |
+| Android | ❌ Disabled | `MCP_CAP_ANDROID=true` | Yes |
+
+### Least-Privilege Recommendations
+
+1. **GitHub Token**: Use fine-grained tokens with minimal scopes
+   - Contents: Read and write
+   - Pull requests: Read and write
+   - Workflows: Only if pushing workflows
+
+2. **Supabase**: Prefer RLS-secured anon keys over service keys
+   - Service keys should only be used server-side
+   - Implement Row Level Security policies
+
+3. **Cloudflare**: Create API tokens with specific permissions
+   - Cloudflare Pages: Edit
+   - Workers Scripts: Edit
+   - Avoid account-wide tokens
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests (72 tests including security gates)
 pnpm test
 
 # Run tests in watch mode
@@ -184,89 +287,91 @@ pnpm test:watch
 # Run tests with UI
 pnpm test:ui
 
-# Build the project
+# Build
 pnpm build
-
-# Start the built server
-pnpm start
 ```
 
-## Testing
+### Test Coverage
 
-The project includes comprehensive integration tests for all tools with mocked external APIs:
+- ✅ Snippet tools (7 tests)
+- ✅ Git tools (9 tests)
+- ✅ Supabase tools (9 tests)
+- ✅ Cloudflare tools (6 tests)
+- ✅ Android tools (7 tests)
+- ✅ Security gates (20 tests)
+- ✅ Secure logger (14 tests)
 
-- **Snippet Tools** - Tests for search, upsert, export, import with mocked Cohere API
-- **Git Tools** - Tests for repo creation, commits, branches, PRs with mocked GitHub CLI
-- **Supabase Tools** - Tests for queries and KV operations with mocked fetch API
-- **Cloudflare Tools** - Tests for Pages and Workers deployment with mocked Wrangler CLI
-- **Android Tools** - Tests for IME builds with mocked Gradle execution
+---
 
-Run tests with:
+## 🔍 Error Codes
 
-```bash
-pnpm test
-```
+| Code | Message | Cause | Resolution |
+|------|---------|-------|-----------|
+| `SEC001` | Dry-run mode enabled | `confirm:true` not provided | Add `confirm:true` to arguments |
+| `SEC002` | Confirmation required | `requireConfirm=true` | Add `confirm:true` to arguments |
+| `SEC003` | Capability disabled | Tool category not enabled | Set `MCP_CAP_<CATEGORY>=true` |
+| `SEC004` | Not in whitelist | Repo/org/branch not whitelisted | Add to whitelist or use allowed pattern |
+| `VAL001` | Invalid input | Schema validation failed | Check input format and constraints |
+| `VAL002` | Length constraint | String too short/long | Adjust to meet length requirements |
+| `VAL003` | Pattern mismatch | Invalid characters/format | Use allowed characters only |
+| `AUTH001` | Missing credentials | API key/token not configured | Set required environment variables |
 
-## Architecture
+---
+
+## 🏗️ Architecture
 
 ```
 keycode-mcp/
 ├── src/
-│   ├── server.ts           # Main MCP server implementation
-│   ├── resources/          # Resource handlers
-│   │   └── snippets.ts     # Snippet storage and management
-│   ├── tools/              # Tool implementations
-│   │   ├── embeddings.ts   # Cohere embeddings service
-│   │   ├── snippet-tools.ts
-│   │   ├── git-tools.ts
-│   │   ├── supabase-tools.ts
-│   │   ├── cloudflare-tools.ts
-│   │   └── android-tools.ts
-│   ├── prompts/            # Prompt templates
-│   │   └── index.ts
-│   └── types/              # TypeScript type definitions
-│       └── snippet.ts
-├── tests/                  # Integration tests
-├── .github/
-│   └── workflows/
-│       └── ci.yml          # GitHub Actions CI pipeline
-├── package.json
-├── tsconfig.json
-└── vitest.config.ts
+│   ├── server.ts              # Main MCP server with security integration
+│   ├── security/
+│   │   ├── gates.ts           # Security gate implementation
+│   │   └── logger.ts          # Secure logger with masking
+│   ├── types/
+│   │   ├── security.ts        # Security config types
+│   │   └── snippet.ts         # Snippet types
+│   ├── resources/
+│   │   └── snippets.ts        # Snippet storage
+│   ├── tools/
+│   │   ├── embeddings.ts      # Cohere embeddings
+│   │   ├── snippet-tools.ts   # Snippet operations
+│   │   ├── git-tools.ts       # Git operations (secured)
+│   │   ├── supabase-tools.ts  # Supabase integration
+│   │   ├── cloudflare-tools.ts # Cloudflare deployment (secured)
+│   │   └── android-tools.ts   # Android builds (secured)
+│   └── prompts/
+│       └── index.ts           # Prompt templates
+├── tests/                     # 72 integration tests
+├── .github/workflows/
+│   ├── ci.yml                 # CI pipeline
+│   ├── codeql.yml             # CodeQL security scanning
+│   └── secret-scan.yml        # TruffleHog secret scanning
+└── .env.example               # Configuration template
 ```
 
-## CI/CD
+---
 
-The project uses GitHub Actions for continuous integration:
+## 🤝 Contributing
 
-- **Test Matrix**: Tests run on Node.js 18.x, 20.x, and 22.x
-- **Type Checking**: TypeScript compilation is verified
-- **Automated Testing**: All integration tests run on every push and PR
+1. Fork the repository
+2. Create feature branch: `git checkout -b sandbox-feature-name`
+3. Commit changes: `git commit -m "feat: description"`
+4. Push: `git push origin sandbox-feature-name`
+5. Open Pull Request
 
-View the CI status in the [Actions tab](../../actions) of the repository.
+**Security Note**: All PRs are scanned for secrets and security issues via CodeQL and TruffleHog.
 
-## Security Notes
+---
 
-- **Never commit secrets** - All API keys and tokens should be provided via environment variables
-- **Use service accounts** - For production deployments, use dedicated service accounts with minimal permissions
-- **Rotate tokens regularly** - Periodically rotate your API keys and tokens
-- **Review permissions** - Ensure GitHub tokens and Cloudflare tokens have only the necessary scopes
-
-## License
+## 📄 License
 
 MIT
 
-## Contributing
+---
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## 🆘 Support
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+For issues, questions, or security concerns, please open an issue on GitHub.
 
-## Support
-
-For issues, questions, or contributions, please open an issue on GitHub.
+**Security Vulnerabilities**: Please report via GitHub Security Advisories.
 

@@ -1,14 +1,32 @@
 import { z } from 'zod';
 import { execSync } from 'child_process';
+import { SecurityGate } from '../security/gates.js';
+import { logger } from '../security/logger.js';
 
 export const AndroidBuildImeSchema = z.object({
   projectPath: z.string().describe('Path to Android project'),
   buildType: z.enum(['assembleDebug', 'assembleRelease']).default('assembleDebug').describe('Build type'),
   clean: z.boolean().optional().default(false).describe('Clean before build'),
+  confirm: z.boolean().optional().default(false).describe('Confirm execution (required when dry-run is enabled)'),
 });
 
 export class AndroidTools {
+  private securityGate?: SecurityGate;
+
+  constructor(securityGate?: SecurityGate) {
+    this.securityGate = securityGate;
+  }
+
   async buildIme(args: z.infer<typeof AndroidBuildImeSchema>) {
+    // Security gate check
+    if (this.securityGate) {
+      const gateCheck = await this.securityGate.checkMutatingOperation('android.buildIme', args, args.confirm);
+      if (!gateCheck.allowed) {
+        logger.warn('android.buildIme blocked', { reason: gateCheck.reason, dryRun: gateCheck.dryRun });
+        throw new Error(gateCheck.reason || 'Operation not allowed');
+      }
+    }
+
     try {
       const cwd = args.projectPath;
       
@@ -43,6 +61,8 @@ export class AndroidTools {
       } else {
         apkPath = 'app/build/outputs/apk/release/app-release.apk';
       }
+
+      logger.info('android.buildIme success', { buildType: args.buildType, apkPath });
 
       return {
         success: true,

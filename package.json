@@ -1,6 +1,6 @@
 {
   "name": "keycode-mcp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "MCP server for code snippet management, git operations, Supabase/Cloudflare integration, and Android IME builds",
   "type": "module",
   "main": "dist/server.js",
